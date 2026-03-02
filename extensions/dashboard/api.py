@@ -39,7 +39,13 @@ app = FastAPI(title="Pane Awareness Dashboard", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8005", "http://127.0.0.1:8005"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8005",
+        "http://127.0.0.1:8005",
+        # Add your Vercel deployment URL here after first deploy:
+        # "https://pane-awareness.vercel.app",
+    ],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
