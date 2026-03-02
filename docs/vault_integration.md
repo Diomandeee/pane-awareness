@@ -24,7 +24,7 @@ path = "~/my-obsidian-vault"
 ## Usage
 
 ```python
-from extensions.vault_writer import VaultWriter
+from pane_awareness.extensions.vault_writer import VaultWriter  # pip install pane-awareness[vault]
 
 writer = VaultWriter()  # uses VAULT_PATH env var
 

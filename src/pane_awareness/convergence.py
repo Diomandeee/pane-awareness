@@ -124,7 +124,7 @@ def predict_convergence(panes: Dict[str, Dict]) -> List[Dict[str, Any]]:
                         vec_a, vec_b, all_converging
                     ),
                     "recommendation": _generate_recommendation(
-                        "conflict", all_converging
+                        pred_type.lower(), all_converging
                     ),
                 })
 

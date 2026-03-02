@@ -6,18 +6,23 @@ concurrent access from multiple terminal sessions.
 Uses fcntl on macOS/Linux and msvcrt on Windows.
 """
 
+import copy
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict
 
-from ._compat import lock_exclusive, lock_shared, unlock
+from ._compat import IS_WINDOWS, lock_exclusive, lock_shared, unlock
 from .config import get_config
 
 
 def _ensure_state_dir() -> Path:
     """Ensure the state directory exists and return its path."""
     state_dir = get_config().state_dir
-    state_dir.mkdir(parents=True, exist_ok=True)
+    if not IS_WINDOWS:
+        state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    else:
+        state_dir.mkdir(parents=True, exist_ok=True)
     return state_dir
 
 
@@ -56,10 +61,6 @@ def read_json_locked(filepath: Path, default: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Parsed JSON data or the default.
     """
-    if not filepath.exists():
-        import copy
-        return copy.deepcopy(default)
-
     try:
         with open(filepath, "r") as f:
             lock_shared(f.fileno())
@@ -68,8 +69,8 @@ def read_json_locked(filepath: Path, default: Dict[str, Any]) -> Dict[str, Any]:
             finally:
                 unlock(f.fileno())
         return data
-    except (json.JSONDecodeError, OSError):
-        return dict(default)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return copy.deepcopy(default)
 
 
 def write_json_locked(filepath: Path, data: Dict[str, Any]) -> None:
@@ -81,19 +82,27 @@ def write_json_locked(filepath: Path, data: Dict[str, Any]) -> None:
     """
     _ensure_state_dir()
 
-    with open(filepath, "w") as f:
-        lock_exclusive(f.fileno())
-        try:
-            json.dump(data, f, indent=2)
-        finally:
-            unlock(f.fileno())
+    if IS_WINDOWS:
+        with open(filepath, "w") as f:
+            lock_exclusive(f.fileno())
+            try:
+                json.dump(data, f, indent=2)
+            finally:
+                unlock(f.fileno())
+    else:
+        fd = os.open(str(filepath), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            lock_exclusive(f.fileno())
+            try:
+                json.dump(data, f, indent=2)
+            finally:
+                unlock(f.fileno())
 
 
 # Default schemas for each state file
 
 REGISTRY_DEFAULT = {
     "panes": {},
-    "cross_pollination": [],
     "message_log": [],
     "last_updated": None,
 }

@@ -13,13 +13,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import (
-    VAULT_PATH, PANES_DIR, PREDICTIONS_DIR, CLAIMS_DIR,
-    THREADS_DIR, TOPOLOGIES_DIR, PROJECTS_DIR, INBOX_DIR, ALL_DIRS,
+    ALL_DIRS,
+    CLAIMS_DIR,
+    INBOX_DIR,
+    PANES_DIR,
+    PREDICTIONS_DIR,
+    PROJECTS_DIR,
+    THREADS_DIR,
+    TOPOLOGIES_DIR,
+    VAULT_PATH,
 )
 from .schema import SECTION_OWNERS
 from .templates import (
-    pane_note, prediction_note, claim_note, enhanced_connection_note,
-    topology_note, handoff_thread_note, project_stub,
+    claim_note,
+    enhanced_connection_note,
+    handoff_thread_note,
+    pane_note,
+    prediction_note,
+    project_stub,
+    topology_note,
 )
 
 

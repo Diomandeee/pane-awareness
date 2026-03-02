@@ -122,20 +122,19 @@ src/pane_awareness/
 
 ```json
 {
-  "claims": [
-    {
-      "resource": "file:src/auth.py",
-      "holder_tty": "/dev/ttys001",
-      "holder_project": "api-server",
+  "active_claims": {
+    "file:src/auth.py": {
+      "holder": "/dev/ttys001",
+      "holder_label": "api-server (top-left)",
       "scope": "exclusive",
       "reason": "refactoring login flow",
       "claimed_at": "2024-01-01T12:00:00Z",
-      "last_active": "2024-01-01T12:30:00Z",
       "contested_by": null,
       "contested_at": null
     }
-  ],
-  "claims_log": []
+  },
+  "claims_log": [],
+  "last_updated": "2024-01-01T12:30:00Z"
 }
 ```
 

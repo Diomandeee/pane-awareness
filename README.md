@@ -59,7 +59,7 @@ pa.send_message(target="top-right", message="I'm done with auth, you can take ov
 Exposes all 20 tools via the Model Context Protocol:
 
 ```bash
-pa mcp serve
+python mcp/server.py
 ```
 
 Add to your Claude Code config:
@@ -69,7 +69,7 @@ Add to your Claude Code config:
   "mcpServers": {
     "pane-awareness": {
       "command": "python3",
-      "args": ["-m", "pane_awareness.mcp"]
+      "args": ["/path/to/pane-awareness/mcp/server.py"]
     }
   }
 }
@@ -98,7 +98,7 @@ Add to your Claude Code config:
 ┌──────────────────────────────────────────────────────────────┐
 │                  pane-awareness (shared state)                │
 │                                                              │
-│  ~/.local/share/pane-awareness/                              │
+│  ~/.config/pane-awareness/state/                              │
 │  ├── pane_registry.json    ← pane states + topics            │
 │  ├── pane_claims.json      ← resource claims                 │
 │  ├── pane_predictions.json ← convergence predictions         │
@@ -181,7 +181,7 @@ pa claims                    # Show active claims
 pa predictions               # Show convergence predictions
 pa pollination               # Full cross-pollination analysis
 pa install --claude-code     # Install Claude Code hooks
-pa mcp serve                 # Start MCP server
+python mcp/server.py         # Start MCP server
 ```
 
 ## Configuration
@@ -197,25 +197,21 @@ Example config:
 
 ```toml
 [general]
-state_dir = "~/.local/share/pane-awareness"
-stale_timeout = 600        # seconds before a pane is considered stale
-identity_noise = []        # extra words to filter from topics
+stale_hours = 2.0          # hours before a pane is considered stale
+identity_noise_extra = []  # extra words to filter from topics
 
 [topics]
-max_topics = 10
+max_topics = 8
 extra_stop_words = []
 
 [convergence]
-min_shared_topics = 2
-threshold = 0.35
-prediction_ttl = 3600      # seconds before predictions expire
+threshold = 0.8            # auto-adjusted by the calibration engine
 
 [claims]
-contest_timeout = 120      # seconds before a contested claim can be force-released
-auto_expire = true
+contest_timeout_min = 5    # minutes before a contested claim can be force-released
 
 [messages]
-max_log_entries = 500
+log_cap = 500
 
 [domains]
 # Map topics to domains for proximity detection
@@ -237,7 +233,7 @@ pip install pane-awareness[vault]
 ```
 
 ```python
-from extensions.vault_writer import VaultWriter
+from pane_awareness.extensions.vault_writer import VaultWriter  # pip install pane-awareness[vault]
 
 writer = VaultWriter()  # uses VAULT_PATH env var
 writer.write_pane_state(pane_data)

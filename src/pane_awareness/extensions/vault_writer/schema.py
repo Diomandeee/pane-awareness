@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-
 # --- Note Types (pane-awareness subset) ---
 
 VALID_TYPES = {

@@ -16,11 +16,14 @@ IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
 
 
+_LOCK_NBYTES = 1 << 20  # 1 MiB — covers any state file on Windows
+
+
 def lock_shared(fd: int) -> None:
     """Acquire a shared (read) lock on a file descriptor."""
     if IS_WINDOWS:
         import msvcrt
-        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        msvcrt.locking(fd, msvcrt.LK_LOCK, _LOCK_NBYTES)
     else:
         import fcntl
         fcntl.flock(fd, fcntl.LOCK_SH)
@@ -30,7 +33,7 @@ def lock_exclusive(fd: int) -> None:
     """Acquire an exclusive (write) lock on a file descriptor."""
     if IS_WINDOWS:
         import msvcrt
-        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+        msvcrt.locking(fd, msvcrt.LK_LOCK, _LOCK_NBYTES)
     else:
         import fcntl
         fcntl.flock(fd, fcntl.LOCK_EX)
@@ -40,7 +43,7 @@ def unlock(fd: int) -> None:
     """Release a lock on a file descriptor."""
     if IS_WINDOWS:
         import msvcrt
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, _LOCK_NBYTES)
     else:
         import fcntl
         fcntl.flock(fd, fcntl.LOCK_UN)

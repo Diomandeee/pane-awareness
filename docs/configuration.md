@@ -18,14 +18,15 @@ Config files support TOML (Python 3.11+) with JSON fallback for Python 3.9-3.10.
 ```toml
 [general]
 # Directory for state files (pane_registry.json, pane_claims.json, etc.)
-state_dir = "~/.local/share/pane-awareness"
+# Default: ~/.config/pane-awareness/state
+state_dir = ""
 
-# Seconds of inactivity before a pane is considered stale
-stale_timeout = 600
+# Hours of inactivity before a pane is considered stale
+stale_hours = 2.0
 
 # Extra words to filter from topic extraction (your username, hostname, etc.)
 # These are auto-detected from $USER and $HOME, but you can add more
-identity_noise = []
+identity_noise_extra = []
 
 # Base directories for project name extraction
 # When a pane's CWD is under one of these, the immediate subdirectory is the project name
@@ -33,31 +34,45 @@ project_base_dirs = ["~/projects", "~/Desktop", "~/src", "~/code", "~/work"]
 
 [topics]
 # Maximum number of topics to extract per prompt
-max_topics = 10
+max_topics = 8
+
+# Size of the rolling topic trajectory window
+trajectory_window_size = 10
 
 # Additional stop words to filter (beyond the built-in ~80)
 extra_stop_words = []
 
 [convergence]
-# Minimum number of shared topics to trigger a prediction
-min_shared_topics = 2
-
 # Initial convergence threshold (auto-adjusted by the calibration engine)
-threshold = 0.35
+threshold = 0.8
 
-# Seconds before a prediction expires without resolution
-prediction_ttl = 3600
+# Bounds for auto-calibration
+threshold_min = 0.6
+threshold_max = 0.95
+threshold_step = 0.05
+
+# Minutes before a prediction expires without resolution
+prediction_ttl_min = 60
+
+# Maximum stored predictions
+predictions_cap = 50
+
+# Minutes after resolution before a prediction is considered resolved
+resolution_window_min = 5
 
 [claims]
-# Seconds before a contested claim can be force-released
-contest_timeout = 120
+# Minutes before a contested claim can be force-released
+contest_timeout_min = 5
 
-# Automatically expire claims when the holder pane goes stale
-auto_expire = true
+# Maximum entries in the claims log
+log_cap = 200
 
 [messages]
 # Maximum entries in the message log
-max_log_entries = 500
+log_cap = 500
+
+# Maximum read messages stored per pane
+read_cap = 100
 
 [quadrant]
 # Terminal detection method: auto, terminal, iterm2, linux
@@ -98,14 +113,14 @@ If TOML is not available, you can use JSON:
 ```json
 {
   "general": {
-    "state_dir": "~/.local/share/pane-awareness",
-    "stale_timeout": 600
+    "state_dir": "",
+    "stale_hours": 2.0
   },
   "topics": {
-    "max_topics": 10
+    "max_topics": 8
   },
   "convergence": {
-    "threshold": 0.35
+    "threshold": 0.8
   },
   "domains": {
     "auth": ["authentication", "login", "jwt"]

@@ -248,7 +248,12 @@ def main(argv: Optional[list] = None) -> None:
     p_send.add_argument("target", help="Target pane (TTY, quadrant, or 'all')")
     p_send.add_argument("message", help="Message text")
     p_send.add_argument("--priority", choices=["normal", "urgent"], default="normal")
-    p_send.add_argument("--type", choices=["info", "question", "delegate"], default="info")
+    p_send.add_argument(
+        "--type",
+        choices=["info", "question", "claim", "release",
+                 "delegate", "handoff", "ack", "block"],
+        default="info",
+    )
 
     # messages
     sub.add_parser("messages", help="Read incoming messages")
