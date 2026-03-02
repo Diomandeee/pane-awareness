@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python3 /path/to/pane-awareness/hooks/claude_code/prompt_hook.py",
+        "timeout": 5000
+      }
+    ],
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 /path/to/pane-awareness/hooks/claude_code/session_start_hook.py",
+        "timeout": 5000
+      }
+    ],
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "python3 /path/to/pane-awareness/hooks/claude_code/claim_guard.py",
+        "timeout": 3000
+      }
+    ]
+  }
+}
