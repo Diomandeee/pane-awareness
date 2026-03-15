@@ -56,6 +56,32 @@ async def list_tools():
         Tool(name="detect_quadrant", description="Auto-detect and set quadrant from window position", inputSchema={"type": "object", "properties": {}}),
         Tool(name="domain_map", description="Get the effective domain map (configured + learned)", inputSchema={"type": "object", "properties": {}}),
         Tool(name="send_handoff", description="Send a structured handoff to another pane", inputSchema={"type": "object", "properties": {"target": {"type": "string"}, "task": {"type": "string"}, "context_blob": {"type": "object"}, "next_steps": {"type": "array", "items": {"type": "string"}}}, "required": ["target", "task"]}),
+        Tool(name="spawn_panes", description="Spawn N new Terminal windows with Claude Code + injected prompts. Each directive becomes a new session with `claude -p`.", inputSchema={
+            "type": "object",
+            "properties": {
+                "directives": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "prompt": {"type": "string", "description": "The task/prompt to inject into the new Claude session"},
+                            "project_path": {"type": "string", "description": "Working directory for the new session (default: ~)"},
+                            "title": {"type": "string", "description": "Window title for the new terminal"},
+                        },
+                        "required": ["prompt"],
+                    },
+                    "description": "List of directives to spawn (max 10)",
+                },
+                "enrich": {"type": "boolean", "default": False, "description": "Enrich prompts with AGENTS.md, RAG++, CIA context"},
+                "stagger_seconds": {"type": "number", "default": 1.5, "description": "Delay between spawns"},
+                "dangerously_skip_permissions": {"type": "boolean", "default": False, "description": "Run spawned sessions with --dangerously-skip-permissions"},
+            },
+            "required": ["directives"],
+        }),
+        Tool(name="pending_spawns", description="List pending (unclaimed) spawn records", inputSchema={"type": "object", "properties": {}}),
+        Tool(name="spawn_status", description="Show all spawn records with status (pending/claimed/completed/stalled)", inputSchema={"type": "object", "properties": {"since_hours": {"type": "number", "default": 24, "description": "Only show spawns from the last N hours"}}}),
+        Tool(name="spawn_continue", description="Manually trigger continuation for a completed spawn", inputSchema={"type": "object", "properties": {"spawn_id": {"type": "string", "description": "The spawn ID to continue"}}, "required": ["spawn_id"]}),
+        Tool(name="mesh_load", description="Show pane counts and Claude process counts across all mesh machines", inputSchema={"type": "object", "properties": {}}),
     ]
 
 
@@ -161,6 +187,116 @@ async def call_tool(name: str, arguments: dict):
             context_blob=arguments.get("context_blob", {}),
             next_steps=arguments.get("next_steps"),
         ))
+
+    elif name == "spawn_panes":
+        # Import pane_spawner from prompt-logger hooks
+        _spawner_dir = os.path.join(
+            os.path.expanduser("~"), ".claude", "hooks", "prompt-logger"
+        )
+        if _spawner_dir not in sys.path:
+            sys.path.insert(0, _spawner_dir)
+        from pane_spawner import spawn_panes as _do_spawn
+        result = _do_spawn(
+            directives=arguments.get("directives", []),
+            enrich=arguments.get("enrich", False),
+            stagger_seconds=arguments.get("stagger_seconds", 1.5),
+            dangerously_skip_permissions=arguments.get("dangerously_skip_permissions", False),
+        )
+        return _result(result)
+
+    elif name == "pending_spawns":
+        _spawner_dir = os.path.join(
+            os.path.expanduser("~"), ".claude", "hooks", "prompt-logger"
+        )
+        if _spawner_dir not in sys.path:
+            sys.path.insert(0, _spawner_dir)
+        from pane_spawner import get_pending_spawns
+        return _result(get_pending_spawns())
+
+    elif name == "spawn_status":
+        _spawner_dir = os.path.join(
+            os.path.expanduser("~"), ".claude", "hooks", "prompt-logger"
+        )
+        if _spawner_dir not in sys.path:
+            sys.path.insert(0, _spawner_dir)
+        from pane_spawner import get_all_spawn_records
+        from datetime import datetime, timezone, timedelta
+        since_hours = arguments.get("since_hours", 24)
+        all_records = get_all_spawn_records()
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
+        filtered = {}
+        for sid, rec in all_records.items():
+            spawned_at = rec.get("spawned_at", "")
+            try:
+                ts = datetime.fromisoformat(spawned_at.replace("Z", "+00:00"))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                if ts >= cutoff:
+                    filtered[sid] = rec
+            except (ValueError, TypeError):
+                filtered[sid] = rec  # Include records with unparseable timestamps
+        summary = {
+            "total": len(filtered),
+            "by_status": {},
+            "records": filtered,
+        }
+        for rec in filtered.values():
+            s = rec.get("status", "unknown")
+            summary["by_status"][s] = summary["by_status"].get(s, 0) + 1
+        return _result(summary)
+
+    elif name == "spawn_continue":
+        _spawner_dir = os.path.join(
+            os.path.expanduser("~"), ".claude", "hooks", "prompt-logger"
+        )
+        if _spawner_dir not in sys.path:
+            sys.path.insert(0, _spawner_dir)
+        from pane_spawner import get_all_spawn_records, spawn_panes, mark_follow_up_dispatched
+        spawn_id = arguments["spawn_id"]
+        all_records = get_all_spawn_records()
+        spawn = all_records.get(spawn_id)
+        if not spawn:
+            return _result({"error": f"Spawn {spawn_id} not found"})
+        if spawn.get("status") != "completed":
+            return _result({"error": f"Spawn {spawn_id} is not completed (status={spawn.get('status')})"})
+        # Build continuation prompt
+        prompt = (
+            f"# Continuation: {spawn.get('title', 'Task')}\n\n"
+            f"Continue the work from spawn {spawn_id}.\n"
+            f"Original task: {spawn.get('prompt_preview', 'N/A')}\n"
+            f"Files modified: {', '.join(spawn.get('files_modified', [])[:10])}\n\n"
+            f"Review the current state and complete any remaining work."
+        )
+        result = spawn_panes(
+            directives=[{
+                "prompt": prompt,
+                "title": f"Continue: {spawn.get('title', 'Task')}",
+                "project_path": spawn.get("project_path", os.path.expanduser("~")),
+            }],
+            dangerously_skip_permissions=True,
+            auto_distribute=True,
+            parent_spawn_id=spawn_id,
+        )
+        mark_follow_up_dispatched(spawn_id)
+        return _result(result)
+
+    elif name == "mesh_load":
+        _spawner_dir = os.path.join(
+            os.path.expanduser("~"), ".claude", "hooks", "prompt-logger"
+        )
+        if _spawner_dir not in sys.path:
+            sys.path.insert(0, _spawner_dir)
+        from pane_spawner import _get_mesh_load, _pick_target_machine, LOCAL_PANE_THRESHOLD, MACHINE_ID
+        loads = _get_mesh_load()
+        local_load = loads.get(MACHINE_ID, 0)
+        next_target = _pick_target_machine(local_load)
+        return _result({
+            "loads": loads,
+            "local_machine": MACHINE_ID,
+            "local_threshold": LOCAL_PANE_THRESHOLD,
+            "next_spawn_target": next_target,
+            "would_distribute": next_target != MACHINE_ID,
+        })
 
     return _result({"error": f"Unknown tool: {name}"})
 

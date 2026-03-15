@@ -36,3 +36,4 @@ pane_registry.json
 pane_claims.json
 pane_predictions.json
 learned_domains.json
+.vercel
